@@ -13,11 +13,12 @@ import java.util.List;
 import java.util.Map;
 import java.util.Queue;
 import java.util.Set;
+import java.util.TreeSet;
 
 public class FPGrowth {
 
-	private static String dataPath = "data/store_data.csv";
-	private static float min_sup = (float) 0.001;
+	private static String dataPath = "data/groceries2.csv";
+	private static float min_sup = (float) 0.005;
 	private static float min_conf = (float) 0.5; // adjust min_confident
 
 //	public static String[][] data = {{"1", "2", "5"},
@@ -69,7 +70,24 @@ public class FPGrowth {
 		gen_association_rules(frequent_patterns, association_rules, min_conf);
 		System.err.println("\n-----------Association Rules-----------\n");
 		System.err.println(association_rules.size() + " rules \n");
-		association_rules.forEach(ar -> System.out.println(ar));
+
+		List<AssociationRule> sortedArs = sortAssociationRuleByConf(association_rules);
+		sortedArs.forEach(ar -> System.out.println(ar));
+		System.err.println(sortedArs.size() + " rules generated");
+	}
+
+	private static List<AssociationRule> sortAssociationRuleByConf(Set<AssociationRule> association_rules) {
+		
+		List<AssociationRule> ars = new ArrayList<AssociationRule>(association_rules);
+		Collections.sort(ars, (a1, a2) -> {
+			if (a2.getConf() < a1.getConf()) 
+				return -1;
+			if (a2.getConf() > a1.getConf()) 
+				return 1;
+			return 0;
+		});
+		
+		return ars;
 	}
 
 	private static Map<Transaction, Integer> createTransactions(List<List<String>> data, float min_sup) {
@@ -172,7 +190,7 @@ public class FPGrowth {
 			while (!queue.isEmpty()) {
 				AssociationRule ar = queue.poll();
 				float conf = computeConfident(ar, patterns);
-				if (conf > min_conf) {
+				if (conf >= min_conf) {
 					if (ar.getRight_side().size() > 0) {
 						ar.setConf(conf);
 						association_rules.add(ar);

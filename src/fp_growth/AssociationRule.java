@@ -46,14 +46,13 @@ public class AssociationRule{
 
 	@Override
 	public String toString() {
-		return "" + left_side + "->" + right_side + ":" + (float) Math.round(conf * 1000) / 1000 + "\n";
+		return "" + left_side + "->" + right_side + ":" + conf /*(float) Math.round(conf * 1000) / 1000*/ +  "\n";
 	}
 
 	@Override
 	public int hashCode() {
 		final int prime = 31;
 		int result = 1;
-		result = prime * result + Float.floatToIntBits(conf);
 		result = prime * result + ((left_side == null) ? 0 : left_side.hashCode());
 		result = prime * result + ((right_side == null) ? 0 : right_side.hashCode());
 		return result;
