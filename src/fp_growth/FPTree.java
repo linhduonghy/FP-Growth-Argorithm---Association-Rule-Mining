@@ -23,14 +23,14 @@ public class FPTree {
 		return frequent;
 	}
 	
-	public FPTree(Map<Transaction, Integer> transactions, float min_sup) {		
+	public FPTree(Map<Transaction, Integer> transactions, double min_sup) {		
 		this.frequent = find_frequent_items(transactions, min_sup);
 		this.headers = build_header_table(frequent);
 		this.root = build_fptree(transactions, frequent, headers, min_sup);
 //		System.out.println(root);
 	}
 
-	private Map<Item, Integer> find_frequent_items(Map<Transaction, Integer> transactions, float min_sup) {
+	private Map<Item, Integer> find_frequent_items(Map<Transaction, Integer> transactions, double min_sup) {
 		Map<Item, Integer> frequent_items = new HashMap<Item, Integer>();
 		// count frequent item
 		for (Map.Entry<Transaction, Integer> entry : transactions.entrySet()) {
@@ -46,7 +46,7 @@ public class FPTree {
 		Iterator<Map.Entry<Item, Integer>> it = frequent_items.entrySet().iterator();
 		while (it.hasNext()) {
 			Map.Entry<Item, Integer> entry = it.next();
-			if ((float) entry.getValue()  < min_sup) {
+			if ((double) entry.getValue()  < min_sup) {
 				it.remove();
 			}
 		}
@@ -65,7 +65,7 @@ public class FPTree {
 	}
 
 	private FPNode build_fptree(Map<Transaction, Integer> transactions,
-			Map<Item, Integer> frequent, HeaderTable headers, float min_sup) {
+			Map<Item, Integer> frequent, HeaderTable headers, double min_sup) {
 
 		// initialize root node with null
 		FPNode root = new FPNode(null, null, null);
@@ -87,7 +87,7 @@ public class FPTree {
 				Integer c2 = frequent.get(i2) == null ? 0 : frequent.get(i2);
 				return c2 - c1;
 			});
-			// insert transaction to tree
+			// insert transaction to tree	
 			insert_tree(trans, root, headers);
 		}
 		return root;

@@ -13,31 +13,114 @@ import java.util.List;
 import java.util.Map;
 import java.util.Queue;
 import java.util.Set;
-import java.util.TreeSet;
 
 public class FPGrowth {
 
 	private static String dataPath = "data/groceries2.csv";
-	private static float min_sup = (float) 0.005;
-	private static float min_conf = (float) 0.5; // adjust min_confident
+	private static double min_sup = (double) 0.001; // adjust min_support
+	private static double min_conf = (double) 0.9; // adjust min_confident
 
-//	public static String[][] data = {{"1", "2", "5"},
-//            {"2", "4"},
-//            {"2", "3"},
-//            {"1", "2", "4"},
-//            {"1", "3"},
-//            {"2", "3"},
-//            {"1", "3"},
-//            {"1", "2", "3", "5"},
-//            {"1", "2", "3"}};
-//	public static String[][] data = {{"A", "B", "C", "D", "E"}, 
-//			{"B", "E", "A", "C", "H"},
-//			{"P", "A", "G", "E" },
-//			{"U", "R", "B", "N", "A" },
-//			{"G", "A", "U", "D", "I" }};
-
+	
 	public static void main(String[] args) {
+		
+		System.err.println("\n min_sup = " + min_sup + ", min_conf = " + min_conf);
+		List<List<String>> records = loadData(dataPath);				
+		
+		long startTime = System.currentTimeMillis();
+		
+		min_sup = min_sup * records.size();
+				
+		Map<Transaction, Integer> transactions = createTransactions(records, min_sup);
+		
+//		 build tree
+		FPTree fpTree = new FPTree(transactions, min_sup);
+//		System.err.println("Frequent 1-Itemset: " + fpTree.getFrequent().size()+"\n");
+//		fpTree.getFrequent().keySet().forEach(k -> System.out.println(k + " " + fpTree.getFrequent().get(k)));
 
+//		System.err.println("FP Tree\n");
+//		System.out.println(fpTree.getRoot());
+
+//		mine tree find frequent patterns
+		Map<List<Item>, Integer> frequent_patterns = new HashMap<List<Item>, Integer>();
+		mine_pattern(fpTree, new ArrayList<Item>(), frequent_patterns, min_sup);
+
+		System.err.println("\n-----------Frequent Itemsets-----------\n");
+		System.err.println(frequent_patterns.size() + " itemsets\n");
+//		frequent_patterns.forEach((items, count) -> System.out.println(items + " " + count));
+
+		Set<AssociationRule> association_rules = new HashSet<AssociationRule>();
+		gen_association_rules(frequent_patterns, association_rules, min_conf);
+		System.err.println("\n-----------Association Rules-----------\n");
+
+		List<AssociationRule> sortedArs = sortAssociationRuleByConf(association_rules);
+//		System.err.println(sortedArs.size() + " rules generated\n");
+//		for (AssociationRule ar : sortedArs) {
+//			System.out.println(ar);
+//		}
+		System.err.println(sortedArs.size() + " rules generated\n");
+		long endTime = System.currentTimeMillis();
+		System.err.print("Total time: " + (double)(endTime - startTime) / 1000 + "s\n");
+		
+		List<AssociationRule> testRules = createTestRules();
+		System.out.println("\nCheck rules generated with rules Orange tool generated : " + checkRules(sortedArs, testRules));
+	}
+	
+	private static boolean checkRules(List<AssociationRule> rules1 , List<AssociationRule> rules2) {
+		for (AssociationRule r2 : rules2) {
+			if (!rules1.contains(r2)) {
+//				System.out.println(r2);
+				return false;
+			}
+		}
+		return true;
+	}
+	private static List<AssociationRule> createTestRules() {
+		String dataPath = "data/orange_rules/0_001_0_9.csv";
+		List<List<String>> records = new ArrayList<List<String>>();
+		try (BufferedReader br = new BufferedReader(new FileReader(dataPath))) {
+			String line;
+			while ((line = br.readLine()) != null) {
+				String[] values = line.split(",");
+				records.add(Arrays.asList(values));
+			}
+		} catch (Exception e) {
+			e.printStackTrace();
+		}
+		
+		List<AssociationRule> rules = new ArrayList<AssociationRule>();
+		records.forEach(x -> {
+			List<Item > l = new ArrayList<>();
+			List<Item > r = new ArrayList<>();
+			
+			for (int i = 6; i < x.size() - 1; ++i) {
+				String s = x.get(i);
+				if (i == 6 && s.startsWith("\"")) {
+					s = s.substring(1);			
+				}
+				if (s.startsWith("\"")) {
+					
+					s = s.substring(1);
+					
+				}
+				String[] ss = s.split("=");
+				l.add(new Item(ss[0].trim()));
+			}
+			r.add(new Item(x.get(x.size() - 1).split("=")[0].trim()));
+			Double conf = Double.parseDouble(x.get(1));
+			AssociationRule rule = new AssociationRule();
+			
+			Collections.sort(l);
+			Collections.sort(r);
+			rule.setLeft_side(l);
+			rule.setRight_side(r);
+			rule.setConf(conf);
+			rules.add(rule);
+		});
+		return rules;
+	}
+
+	private static List<List<String>> loadData(String dataPath) {
+		
 		List<List<String>> records = new ArrayList<List<String>>();
 
 		try (BufferedReader br = new BufferedReader(new FileReader(dataPath))) {
@@ -49,31 +132,7 @@ public class FPGrowth {
 		} catch (Exception e) {
 			e.printStackTrace();
 		}
-
-//		System.out.println(min_sup);
-
-		min_sup = min_sup * records.size();
-		Map<Transaction, Integer> transactions = createTransactions(records, min_sup);
-
-//		 build tree
-		FPTree fpTree = new FPTree(transactions, min_sup);
-
-//		 mine tree find frequent patterns
-		Map<List<Item>, Integer> frequent_patterns = new HashMap<List<Item>, Integer>();
-		mine_pattern(fpTree, new ArrayList<Item>(), frequent_patterns, min_sup);
-
-		System.err.println("\n-----------Frequent Itemsets-----------\n");
-		System.err.println(frequent_patterns.size() + " itemsets\n");
-//		frequent_patterns.forEach((items, count) -> System.out.println(items + " " + count));
-
-		Set<AssociationRule> association_rules = new HashSet<AssociationRule>();
-		gen_association_rules(frequent_patterns, association_rules, min_conf);
-		System.err.println("\n-----------Association Rules-----------\n");
-		System.err.println(association_rules.size() + " rules \n");
-
-		List<AssociationRule> sortedArs = sortAssociationRuleByConf(association_rules);
-		sortedArs.forEach(ar -> System.out.println(ar));
-		System.err.println(sortedArs.size() + " rules generated");
+		return records;
 	}
 
 	private static List<AssociationRule> sortAssociationRuleByConf(Set<AssociationRule> association_rules) {
@@ -90,7 +149,7 @@ public class FPGrowth {
 		return ars;
 	}
 
-	private static Map<Transaction, Integer> createTransactions(List<List<String>> data, float min_sup) {
+	private static Map<Transaction, Integer> createTransactions(List<List<String>> data, double min_sup) {
 		Map<Transaction, Integer> transactions = new HashMap<Transaction, Integer>();
 		data.forEach(trans -> {
 			List<Item> items = new ArrayList<Item>();
@@ -109,7 +168,7 @@ public class FPGrowth {
 	}
 
 	public static void mine_pattern(FPTree fpTree, List<Item> prefix, Map<List<Item>, Integer> frequent_patterns,
-			float min_sup) {
+			double min_sup) {
 
 		List<Map.Entry<Item, Integer>> frequent_items = new ArrayList<Map.Entry<Item, Integer>>(
 				fpTree.getFrequent().entrySet());
@@ -144,7 +203,7 @@ public class FPGrowth {
 			}
 			frequent_patterns.put(newFrequentSet, count_new_pattern);
 
-//			System.out.println("-----------------\nBase Item: " + baseItem + "(" + count_base_item + ")");
+//			System.err.println("-----------------\nBase Item: " + baseItem + "(" + count_base_item + ")");
 //			System.out.println("new set: " + newFrequentSet);
 			Map<Transaction, Integer> condPatternBase = fpTree
 					.findConditionalPatternBase(fpTree.getHeaders().getHeaderTable().get(baseItem));
@@ -159,7 +218,7 @@ public class FPGrowth {
 	}
 
 	private static void gen_association_rules(Map<List<Item>, Integer> frequent_patterns,
-			Set<AssociationRule> association_rules, float min_conf) {
+			Set<AssociationRule> association_rules, double min_conf) {
 
 		Map<List<Item>, Integer> patterns = new HashMap<List<Item>, Integer>();
 		// sort list item in pattern by item name
@@ -186,16 +245,16 @@ public class FPGrowth {
 
 			Queue<AssociationRule> queue = new LinkedList<AssociationRule>();
 			queue.add(new AssociationRule(left_side, right_side));
-
+			
 			while (!queue.isEmpty()) {
 				AssociationRule ar = queue.poll();
-				float conf = computeConfident(ar, patterns);
+				double conf = computeConfident(ar, patterns);
 				if (conf >= min_conf) {
 					if (ar.getRight_side().size() > 0) {
 						ar.setConf(conf);
-						association_rules.add(ar);
+						association_rules.add(ar);							
 					}
-					List<AssociationRule> ars = gen_candidate_rule(ar);
+					Set<AssociationRule> ars = gen_candidate_rule(ar);
 					if (ars != null)
 						queue.addAll(ars);
 				}
@@ -203,24 +262,21 @@ public class FPGrowth {
 		}
 	}
 
-	private static float computeConfident(AssociationRule ar, Map<List<Item>, Integer> frequent_patterns) {
+	private static double computeConfident(AssociationRule ar, Map<List<Item>, Integer> frequent_patterns) {
 		List<Item> itemset = new ArrayList<Item>(ar.getLeft_side());
 		itemset.addAll(ar.getRight_side());
 		Collections.sort(itemset);
 		Collections.sort(ar.getLeft_side());
-//		System.out.println(ar.getLeft_side() + "->" + ar.getRight_side());
-//		System.out.println(frequent_patterns.get(itemset) + ", " + frequent_patterns.get(ar.getLeft_side()));
-//		System.out.println((float)(frequent_patterns.get(itemset)) / frequent_patterns.get(ar.getLeft_side()));
-		return (float) (frequent_patterns.get(itemset)) / frequent_patterns.get(ar.getLeft_side());
+		return (double) (frequent_patterns.get(itemset)) / frequent_patterns.get(ar.getLeft_side());
 	}
 
 //	gen X -> Y - X
-	private static List<AssociationRule> gen_candidate_rule(AssociationRule a_rule) {
+	private static Set<AssociationRule> gen_candidate_rule(AssociationRule a_rule) {
 
 		if (a_rule.getLeft_side().size() == 1) {
 			return null;
 		}
-		List<AssociationRule> candidate_rules = new ArrayList<>();
+		Set<AssociationRule> candidate_rules = new HashSet<>();
 
 		// remove one item in left side and add to right side
 		for (Item item : a_rule.getLeft_side()) {
@@ -228,6 +284,8 @@ public class FPGrowth {
 			List<Item> new_right_side = new ArrayList<Item>(a_rule.getRight_side());
 			new_left_side.remove(item);
 			new_right_side.add(item);
+			Collections.sort(new_left_side);
+			Collections.sort(new_right_side);
 			candidate_rules.add(new AssociationRule(new_left_side, new_right_side));
 		}
 
